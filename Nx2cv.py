@@ -119,29 +119,6 @@ def rank_models(results):
     agg_results=agg_results.drop(['fold','iteration'],1)
     return agg_results.ix[np.argsort(agg_results.auc)[::-1]]
 
-
-forest = RandomForestClassifier(n_estimators = 10, n_jobs=2, max_depth=50)
-forest.name='forest1'
-forest2 = RandomForestClassifier(n_estimators = 50, n_jobs=4, max_depth=100)
-forest2.name='forest2'
-logit=LogisticRegression()
-logit.name='logit1'
-ada= AdaBoostClassifier(DecisionTreeClassifier(max_depth=3),n_estimators = 10)
-ada.name='ada1'
-gforest= GradientBoostingClassifier(n_estimators = 10, max_depth=2, subsample=.5)
-gforest.name='gforest1'
-gforest2= GradientBoostingClassifier(n_estimators = 50, max_depth=3, subsample=.5)
-gforest2.name='gforest2'
-
-from sklearn.datasets import make_classification
-data=make_classification(n_samples=100000, n_features=100, n_informative=4, weights=[.95], flip_y=.02, n_repeated=13, class_sep=.5)
-X=pd.DataFrame(data[0])
-y=pd.Series(data[1])
-
-results=evaluate_models(X,y,[logit,forest,forest2,ada,gforest,gforest2],5, downsampling=[0,.1,.2], time_unit='m')
-rank_models(results)
-
-
 def significance(results):
     models=list(set(results.model))
     downsamples=list(set(results.downsampling))
@@ -172,5 +149,28 @@ def significance(results):
                     if current_row!=current_column:
                         sig_matrix[current_column][current_row]=1-f.cdf(sum(numerator)/sum(denominator),10,5)
     return sig_matrix
+
+
+forest = RandomForestClassifier(n_estimators = 10, n_jobs=2, max_depth=50)
+forest.name='forest1'
+forest2 = RandomForestClassifier(n_estimators = 50, n_jobs=4, max_depth=100)
+forest2.name='forest2'
+logit=LogisticRegression()
+logit.name='logit1'
+ada= AdaBoostClassifier(DecisionTreeClassifier(max_depth=3),n_estimators = 10)
+ada.name='ada1'
+gforest= GradientBoostingClassifier(n_estimators = 10, max_depth=2, subsample=.5)
+gforest.name='gforest1'
+gforest2= GradientBoostingClassifier(n_estimators = 50, max_depth=3, subsample=.5)
+gforest2.name='gforest2'
+
+from sklearn.datasets import make_classification
+data=make_classification(n_samples=100000, n_features=100, n_informative=4, weights=[.95], flip_y=.02, n_repeated=13, class_sep=.5)
+X=pd.DataFrame(data[0])
+y=pd.Series(data[1])
+
+results=evaluate_models(X,y,[logit,forest,forest2,ada,gforest,gforest2],5, downsampling=[0,.1,.2], time_unit='m')
+rank_models(results)
+
 
 significance(results)
