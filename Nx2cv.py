@@ -15,7 +15,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 
 #Evaluate a list of models N times with two-fold cross validation
-def evaluate_models(X,y,models,times, downsampling=[0],time_unit='s'):
+def evaluate_models(X,y,models,times, undersampling=[0],time_unit='s'):
     global t
     if time_unit=='m':
         t=60
@@ -36,7 +36,7 @@ def evaluate_models(X,y,models,times, downsampling=[0],time_unit='s'):
         yes_b=sum(y_b)
         len_a=len(y_a)
         len_b=len(y_b)
-        for adjustment in downsampling:
+        for adjustment in undersampling:
             if adjustment!=0:
                 keep_a=yes_a*(1-adjustment)/adjustment
                 keep_b=yes_b*(1-adjustment)/adjustment
@@ -61,7 +61,7 @@ def evaluate_models(X,y,models,times, downsampling=[0],time_unit='s'):
             for pair in p_results:
                 results.append(pair[0])
                 results.append(pair[1])
-    return pd.DataFrame(results, columns=['model','iteration','fold','downsampling','auc','fit_time','predict_time'])
+    return pd.DataFrame(results, columns=['model','iteration','fold','undersampling','auc','fit_time','predict_time'])
 
 
 #Calculate the area under the ROC curve for a set of actual classes and predicted probabilities
@@ -93,7 +93,7 @@ def two_fold(model):
     results.append([model.name,iteration,2,'none',auc,fit_time,auc_time])
     return results
 
-#For a split of the data that has been downsampled, run the cross validation and return accuracy and runtime results
+#For a split of the data that has been undersampled, run the cross validation and return accuracy and runtime results
 def two_fold_adjusted(model):
     results=[]
     start=datetime.datetime.now()
@@ -118,31 +118,31 @@ def two_fold_adjusted(model):
 
 #aggregate the results table and order by average area under the ROC curve
 def rank_models(results):
-    agg_results=results.groupby(['model','downsampling']).agg(np.mean)
+    agg_results=results.groupby(['model','undersampling']).agg(np.mean)
     agg_results=agg_results.drop(['fold','iteration'],1)
     return agg_results.ix[np.argsort(agg_results.auc)[::-1]]
 
 #Generate a matrix of probabilities that two models are comparably accurate using F tests
 def significance(results):
     models=list(set(results.model))
-    downsamples=list(set(results.downsampling))
+    undersamples=list(set(results.undersampling))
     iterations=list(set(results.iteration))
     df1, df2 = len(iterations), len(iterations)*2
-    sig_index=pd.MultiIndex.from_product([models,downsamples], names=['Model','Downsampling'])
+    sig_index=pd.MultiIndex.from_product([models,undersamples], names=['Model','Undersampling'])
     sig_matrix=pd.DataFrame(index=sig_index, columns=sig_index)
     for m1 in models:
-        for d1 in downsamples:
+        for d1 in undersamples:
             current_column=m1,d1
             for m2 in models:
-                for d2 in downsamples:
+                for d2 in undersamples:
                     current_row=m2,d2
                     numerator=[]
                     denominator=[]
                     for i in iterations:
-                        model_1_fold_1=results.auc[(results.model==m1) & (results.downsampling==d1) & (results.iteration==i) & (results.fold==1)]
-                        model_1_fold_2=results.auc[(results.model==m1) & (results.downsampling==d1) & (results.iteration==i) & (results.fold==2)]
-                        model_2_fold_1=results.auc[(results.model==m2) & (results.downsampling==d2) & (results.iteration==i) & (results.fold==1)]
-                        model_2_fold_2=results.auc[(results.model==m2) & (results.downsampling==d2) & (results.iteration==i) & (results.fold==2)]
+                        model_1_fold_1=results.auc[(results.model==m1) & (results.undersampling==d1) & (results.iteration==i) & (results.fold==1)]
+                        model_1_fold_2=results.auc[(results.model==m1) & (results.undersampling==d1) & (results.iteration==i) & (results.fold==2)]
+                        model_2_fold_1=results.auc[(results.model==m2) & (results.undersampling==d2) & (results.iteration==i) & (results.fold==1)]
+                        model_2_fold_2=results.auc[(results.model==m2) & (results.undersampling==d2) & (results.iteration==i) & (results.fold==2)]
                         diff1=float(model_1_fold_1)-float(model_2_fold_1)
                         diff2=float(model_1_fold_2)-float(model_2_fold_2)
                         numerator.append(diff1*diff1)
@@ -151,7 +151,7 @@ def significance(results):
                         denominator.append((diff1-avg_diff)**2 + (diff1-avg_diff)**2)
                         denominator.append((diff1-avg_diff)**2 + (diff1-avg_diff)**2)
                     if current_row!=current_column:
-                        sig_matrix[current_column][current_row]=1-f.cdf(sum(numerator)/sum(denominator),10,5)
+                        sig_matrix[current_column][current_row]=1-f.cdf(sum(numerator)/sum(denominator),df2,df1)
     return sig_matrix
 
 
@@ -176,7 +176,7 @@ X=pd.DataFrame(data[0])
 y=pd.Series(data[1])
 
 #Run the models
-results=evaluate_models(X,y,[logit,forest,forest2,ada,gforest,gforest2],5, downsampling=[0,.1,.2], time_unit='m')
+results=evaluate_models(X,y,[logit,forest,forest2,ada,gforest,gforest2],5, undersampling=[0,.1,.2], time_unit='m')
 
 #Rank the model resutls by average area under the ROC curve
 rank_models(results)
