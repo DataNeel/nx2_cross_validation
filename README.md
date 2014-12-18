@@ -2,3 +2,5 @@ The included python script runs Nx2 fold Cross Validation on multiple binary cla
 
 Burez and Van den Poel (2009) was the main source cited when writing this code.
 http://sci2s.ugr.es/keel/pdf/specific/articulo/burez_handling_2009.pdf
+
+Github page with a better explanation coming soon.
