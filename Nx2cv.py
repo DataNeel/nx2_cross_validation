@@ -1,17 +1,20 @@
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
 import datetime
 import random
 import numpy as np
-from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.ensemble import AdaBoostClassifier
-from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import roc_curve, auc
 from multiprocessing import Pool
 from scipy.stats import f
 pd.set_option('display.multi_sparse', False)
 
+#models for demonstration
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.ensemble import AdaBoostClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+
+#Evaluate a list of models N times with two-fold cross validation
 def evaluate_models(X,y,models,times, downsampling=[0],time_unit='s'):
     global t
     if time_unit=='m':
@@ -61,13 +64,13 @@ def evaluate_models(X,y,models,times, downsampling=[0],time_unit='s'):
     return pd.DataFrame(results, columns=['model','iteration','fold','downsampling','auc','fit_time','predict_time'])
 
 
-
+#Calculate the area under the ROC curve for a set of actual classes and predicted probabilities
 def get_auc(y,probs):
     fpr, tpr, thresholds = roc_curve(y,probs)
     roc_auc = auc(fpr, tpr)
     return roc_auc
 
-
+#For a split of the data, run the cross validation and return accuracy and runtime results
 def two_fold(model):
     results=[]
     start=datetime.datetime.now()
@@ -90,7 +93,7 @@ def two_fold(model):
     results.append([model.name,iteration,2,'none',auc,fit_time,auc_time])
     return results
 
-
+#For a split of the data that has been downsampled, run the cross validation and return accuracy and runtime results
 def two_fold_adjusted(model):
     results=[]
     start=datetime.datetime.now()
@@ -113,12 +116,13 @@ def two_fold_adjusted(model):
     results.append([model.name,iteration,2,adjustment,auc,fit_time,auc_time])
     return results
 
-
+#aggregate the results table and order by average area under the ROC curve
 def rank_models(results):
     agg_results=results.groupby(['model','downsampling']).agg(np.mean)
     agg_results=agg_results.drop(['fold','iteration'],1)
     return agg_results.ix[np.argsort(agg_results.auc)[::-1]]
 
+#Generate a matrix of probabilities that two models are comparably accurate using F tests
 def significance(results):
     models=list(set(results.model))
     downsamples=list(set(results.downsampling))
@@ -151,6 +155,7 @@ def significance(results):
     return sig_matrix
 
 
+#Create classifiers to test
 forest = RandomForestClassifier(n_estimators = 10, n_jobs=2, max_depth=50)
 forest.name='forest1'
 forest2 = RandomForestClassifier(n_estimators = 50, n_jobs=4, max_depth=100)
@@ -164,13 +169,17 @@ gforest.name='gforest1'
 gforest2= GradientBoostingClassifier(n_estimators = 50, max_depth=3, subsample=.5)
 gforest2.name='gforest2'
 
+#Generate a fake binary classification dataset with extreme class imbalance
 from sklearn.datasets import make_classification
 data=make_classification(n_samples=100000, n_features=100, n_informative=4, weights=[.95], flip_y=.02, n_repeated=13, class_sep=.5)
 X=pd.DataFrame(data[0])
 y=pd.Series(data[1])
 
+#Run the models
 results=evaluate_models(X,y,[logit,forest,forest2,ada,gforest,gforest2],5, downsampling=[0,.1,.2], time_unit='m')
+
+#Rank the model resutls by average area under the ROC curve
 rank_models(results)
 
-
+#Determine if each pair of models has statistically different accuracy levels
 significance(results)
