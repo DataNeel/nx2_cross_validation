@@ -9,6 +9,7 @@ from sklearn.ensemble import AdaBoostClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import roc_curve, auc
 from multiprocessing import Pool
+from scipy.stats import f
 pd.set_option('display.multi_sparse', False)
 
 def evaluate_models(X,y,models,times, downsampling=[0],time_unit='s'):
@@ -57,7 +58,7 @@ def evaluate_models(X,y,models,times, downsampling=[0],time_unit='s'):
             for pair in p_results:
                 results.append(pair[0])
                 results.append(pair[1])
-    return pd.DataFrame(results, columns=['model','iteration','k','downsampling','auc','fit_time','predict_time'])
+    return pd.DataFrame(results, columns=['model','iteration','fold','downsampling','auc','fit_time','predict_time'])
 
 
 
@@ -115,7 +116,7 @@ def two_fold_adjusted(model):
 
 def rank_models(results):
     agg_results=results.groupby(['model','downsampling']).agg(np.mean)
-    agg_results=agg_results.drop(['k','iteration'],1)
+    agg_results=agg_results.drop(['fold','iteration'],1)
     return agg_results.ix[np.argsort(agg_results.auc)[::-1]]
 
 
@@ -139,3 +140,37 @@ y=pd.Series(data[1])
 
 results=evaluate_models(X,y,[logit,forest,forest2,ada,gforest,gforest2],5, downsampling=[0,.1,.2], time_unit='m')
 rank_models(results)
+
+
+def significance(results):
+    models=list(set(results.model))
+    downsamples=list(set(results.downsampling))
+    iterations=list(set(results.iteration))
+    df1, df2 = len(iterations), len(iterations)*2
+    sig_index=pd.MultiIndex.from_product([models,downsamples], names=['Model','Downsampling'])
+    sig_matrix=pd.DataFrame(index=sig_index, columns=sig_index)
+    for m1 in models:
+        for d1 in downsamples:
+            current_column=m1,d1
+            for m2 in models:
+                for d2 in downsamples:
+                    current_row=m2,d2
+                    numerator=[]
+                    denominator=[]
+                    for i in iterations:
+                        model_1_fold_1=results.auc[(results.model==m1) & (results.downsampling==d1) & (results.iteration==i) & (results.fold==1)]
+                        model_1_fold_2=results.auc[(results.model==m1) & (results.downsampling==d1) & (results.iteration==i) & (results.fold==2)]
+                        model_2_fold_1=results.auc[(results.model==m2) & (results.downsampling==d2) & (results.iteration==i) & (results.fold==1)]
+                        model_2_fold_2=results.auc[(results.model==m2) & (results.downsampling==d2) & (results.iteration==i) & (results.fold==2)]
+                        diff1=float(model_1_fold_1)-float(model_2_fold_1)
+                        diff2=float(model_1_fold_2)-float(model_2_fold_2)
+                        numerator.append(diff1*diff1)
+                        numerator.append(diff2*diff2)
+                        avg_diff=(diff1+diff2)/2
+                        denominator.append((diff1-avg_diff)**2 + (diff1-avg_diff)**2)
+                        denominator.append((diff1-avg_diff)**2 + (diff1-avg_diff)**2)
+                    if current_row!=current_column:
+                        sig_matrix[current_column][current_row]=1-f.cdf(sum(numerator)/sum(denominator),10,5)
+    return sig_matrix
+
+significance(results)
