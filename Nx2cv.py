@@ -32,23 +32,11 @@ def evaluate_models(X,y,models,times, undersampling=[0],time_unit='s'):
         y_a=y[rows]
         X_b=X.drop(rows)
         y_b=y.drop(rows)
-        yes_a=sum(y_a)
-        yes_b=sum(y_b)
-        len_a=len(y_a)
-        len_b=len(y_b)
         for adjustment in undersampling:
             if adjustment!=0:
-                keep_a=yes_a*(1-adjustment)/adjustment
-                keep_b=yes_b*(1-adjustment)/adjustment
-                lose_a=len_a-keep_a-yes_a
-                lose_b=len_b-keep_b-yes_b
-                if lose_a>=0 and lose_b>=0:
-                    lose_a_rows=random.sample(X_a[y_a==0].index,int(lose_a))
-                    lose_b_rows=random.sample(X_b[y_b==0].index,int(lose_b))
-                    X_a_adjusted=X_a.drop(lose_a_rows)
-                    y_a_adjusted=y_a.drop(lose_a_rows)
-                    X_b_adjusted=X_b.drop(lose_b_rows)
-                    y_b_adjusted=y_b.drop(lose_b_rows)
+                X_a_adjusted, y_a_adjusted, a_good=undersample(X_a,y_a,adjustment)
+                X_b_adjusted, y_b_adjusted, b_good=undersample(X_b,y_b,adjustment)
+                if a_good & b_good:
                     p=Pool(len(models))
                     p_results=p.map(two_fold_adjusted,models)
                     p.close()
@@ -69,6 +57,20 @@ def get_auc(y,probs):
     fpr, tpr, thresholds = roc_curve(y,probs)
     roc_auc = auc(fpr, tpr)
     return roc_auc
+
+def undersample(X,y,undersample_level):
+    yes=sum(y)
+    length=len(y)
+    keep=yes*(1-undersample_level)/undersample_level
+    lose=length-keep-yes
+    if lose>0:
+        lose_rows=random.sample(X.loc[y==0].index,int(lose))
+        X_adjusted=X.drop(lose_rows)
+        y_adjusted=y.drop(lose_rows)
+        return X_adjusted, y_adjusted, True
+    else:
+        return X, y, False
+
 
 #For a split of the data, run the cross validation and return accuracy and runtime results
 def two_fold(model):
