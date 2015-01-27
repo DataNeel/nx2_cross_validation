@@ -16,6 +16,7 @@ Perform Nx2cv for a set of data, models, and parameters. For each level of under
 * X - The feature matrix. Must be provided in 0s and 1s
 * y - The target classes
 * models - A python list of binary classifier models to be tested. Each model must have a model name assigned to it after being created (e.g. model.name = 'model1')
+* times - The number of 2-fold cross validation iterations to run (e.g. 5 will run 2-fold validation 5 times and generate 10 accuracy metrics)
 * undersampling - A list of undersampling proportions to attempt. 0 indicates no undersampling and is used by default
 * time_unit - The unit of time to be used for avg. run time and avg. predict time in the results table (s, m, or h)
 
